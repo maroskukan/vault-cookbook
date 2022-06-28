@@ -1,6 +1,6 @@
 # Vagrant
 .vagrant/
-*/init/*
+init*/
 
 # VSCode configuration files
 .vscode/*

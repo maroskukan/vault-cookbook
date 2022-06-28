@@ -1,0 +1,30 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Ensure apt key for hashicorp is present
+      ansible.builtin.apt_key:
+        url: https://apt.releases.hashicorp.com/gpg
+        state: present
+      become: true
+
+    - name: Ensure repository for Hashicorp is present.
+      ansible.builtin.apt_repository:
+        repo: deb https://apt.releases.hashicorp.com {{ ansible_lsb.codename }}  main
+        state: present
+      become: true
+
+    - name: Ensure Vault is installed
+      ansible.builtin.apt:
+        name:
+          - vault
+        update_cache: yes
+
+    - name: Ensure Vault configuration file is present
+      ansible.builtin.copy:
+        src: ./files/vault.hcl
+        dest: /etc/vault.d/vault.hcl
+        owner: vault
+        group: vault
+        mode: '0644'
+        backup: true

@@ -28,3 +28,28 @@
         group: vault
         mode: '0644'
         backup: true
+      notify:
+      - Restart Vault
+
+    - name: Ensure Systemd Service file definition is present
+      ansible.builtin.copy:
+        src: ./files/vault.service
+        dest: /lib/systemd/system/vault.service
+        owner: root
+        group: root
+        mode: '0644'
+        backup: true
+      notify:
+      - Restart Vault
+
+    - name: Ensure Vault Service is enabled
+      ansible.builtin.service:
+        name: vault
+        enabled: true
+        state: started
+
+  handlers:
+    - name: Restart Vault
+      ansible.builtin.service:
+        name: vault
+        state: restarted

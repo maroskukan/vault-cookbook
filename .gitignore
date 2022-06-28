@@ -1,7 +1,7 @@
-# General
+# Vagrant
 .vagrant/
 
-# VSCode
+# VSCode configuration files
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json

@@ -32,7 +32,23 @@ Vagrant.configure("2") do |config|
   end
 
   # VM Shared Provisioning
-  config.vm.provision "ansible" do |ansible|
-    ansible.playbook = "playbook.yml"
+  config.vm.provision "install", type: "ansible" do |install|
+    install.playbook = "vault-install.yml"
+  end
+
+  config.vm.provision "init", type: "ansible" do |init|
+    init.playbook = "vault-initialize.yml"
+    init.extra_vars = {
+      unseal_keys_dir_output: "./init_unseal",
+      root_token_dir_output: "./init_root"
+    }
+  end
+
+  config.vm.provision "unseal", type: "ansible" do |unseal|
+    unseal.playbook = "vault-unseal.yml"
+    unseal.extra_vars = {
+      unseal_keys_dir_output: "./init_unseal",
+      root_token_dir_output: "./init_root"
+    }
   end
 end

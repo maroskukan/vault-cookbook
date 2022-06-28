@@ -1,0 +1,26 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Reading unseal key contents
+      ansible.builtin.command: cat {{item}}
+      register: unseal_keys
+      with_fileglob: "{{ unseal_keys_dir_output }}/*"
+      delegate_to: localhost
+      become: false
+      no_log: true
+
+    - name: Unseal vault with unseal keys
+      ansible.builtin.shell: |
+        vault operator unseal {{ item.stdout }}
+      environment:
+        VAULT_ADDR: "http://127.0.0.1:8200"
+      with_items: "{{unseal_keys.results}}"
+      no_log: true
+
+    - name: Ensure the VAULT_ADDR env var points to http
+      ansible.builtin.lineinfile:
+        dest: "/etc/environment"
+        state: present
+        regexp: "^VAULT_ADDR="
+        line: "VAULT_ADDR='http://127.0.0.1:8200"

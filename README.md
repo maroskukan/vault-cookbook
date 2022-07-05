@@ -12,6 +12,15 @@
     - [Paths](#paths)
     - [Data Protection](#data-protection)
     - [Seal and Unseal](#seal-and-unseal)
+  - [Installation](#installation)
+    - [Binary](#binary)
+    - [Package](#package)
+    - [Source](#source)
+    - [Container](#container)
+  - [Initialization](#initialization)
+    - [Dev Server](#dev-server)
+  - [Configuration](#configuration)
+    - [Secrets Engines](#secrets-engines-1)
 
 
 ## Introduction
@@ -142,3 +151,209 @@ Encryption Key - used to encrypt/decrypt data written to storage backend
   - Key shareds are inadvertently exposed
   - Detection of a compromise or network intrustion
   - Malware on the Vault nodes
+
+
+## Installation
+
+Vault is written in Go language with source code available on Github. It is distributed as single binary but other options such as repository package or container image are available.
+
+### Binary
+
+One of the most straighforward methods. Simple download the zip file for approripate architecture and place it somwhere in the exection path.
+
+```bash
+wget -q https://releases.hashicorp.com/vault/1.11.0/vault_1.11.0_linux_amd64.zip
+
+wget -qO- https://releases.hashicorp.com/vault/1.11.0/vault_1.11.0_SHA256SUMS \
+     | grep vault_1.11.0_linux_amd64.zip \
+     | sha256sum -c -
+vault_1.11.0_linux_amd64.zip: OK
+
+unzip vault_*
+
+./vault version
+Vault v1.11.0 (ea296ccf58507b25051bc0597379c467046eb2f1), built 2022-06-17T15:48:44Z
+```
+
+### Package
+
+Another method is to leverage a packege manager such as `Homebrew`, `Chocolatey`, `Aptitude` to download, install and upgrade the binary. The benefit of this approach is that this method will also create basic service definition (`vault.service`) and configuration file (`vault.hcl`).
+
+### Source
+
+In order to compile from source, you need to have Go available locally or you can use a Docker image that contains Go and execute compilation within this container.
+
+```
+# Clone repo, enter container and compile
+git clone git@github.com:hashicorp/vault
+cd vault
+docker run --rm -it -v "$PWD":/usr/src/myapp -w /usr/src/myapp golang bash
+make bootstrap
+make dev
+
+# Verify the produced binary
+./bin/vault version
+Vault v1.12.0-dev1 ('2ccc3e0e6be4340ec69421b05d45e67751d46891'), built 2022-06-28T19:54:24Z
+```
+
+### Container
+
+Vault server can be started as container with the following options:
+
+```bash
+docker container run -d \
+                     -p 8200:8200 \
+                     --cap-add=IPC_LOCK \
+                     --name=dev-vault \
+                     vault
+```
+
+This will start the container in background with a local port mapping. The generated Unseal Key and Root Token can be displayed by retrieving container logs.
+
+```bash
+docker container logs dev-vault 2>&1 | grep 'Unseal Key\|Root Token'
+Unseal Key: xZ9QJzJIYE6yFkq4Z/mi4C8hzyvPqG9j1KuBT7kT24U=
+Root Token: hvs.VB6yvJb8xI0h2tGxZWM1sw97
+```
+
+It may happen that the container is logging into `stderr` therefore in order for pipe to work, redirect the output to `stdout` first.
+
+
+## Initialization
+
+After you download and install binary, it is now time to initialize the vault server. The procedure (starting and unsealing) will be different depending on use case (Development vs. Production).
+
+### Dev Server
+
+Dev server is used, as name implies for development and testing, it should never be used in production. It automatically starts in unsealed state, prints out the `Unseal Key` and `Root Token` in output. It uses in-memory storage backend, therefore it does not persist secret data.
+
+It can be started with the `-dev` argument.
+
+```bash
+# Start in dev mode in background
+vault server -dev &
+
+# Update VAULT_ADDR and Verify status
+export VAULT_ADDR='http://127.0.0.1:8200'
+vault status
+Key             Value
+---             -----
+Seal Type       shamir
+Initialized     true
+Sealed          false
+Total Shares    1
+Threshold       1
+Version         1.10.4
+Storage Type    inmem
+Cluster Name    vault-cluster-f366bb73
+Cluster ID      c313998c-10c8-5077-d3e4-12137cd04cab
+HA Enabled      false
+```
+
+To Write a key/value pair, interact with `kv` Key-Value storage and use `put` method against the default kv secret storage path at `secret/`.
+
+```bash
+vault kv put secret/mySecret password=myPassword
+==== Secret Path ====
+secret/data/mySecret
+
+======= Metadata =======
+Key                Value
+---                -----
+created_time       2022-07-04T12:36:28.3963921Z
+custom_metadata    <nil>
+deletion_time      n/a
+destroyed          false
+version            1
+```
+
+To retrieve the secret use `get` method.
+
+```bash
+vault kv get secret/mySecret
+==== Secret Path ====
+secret/data/mySecret
+
+======= Metadata =======
+Key                Value
+---                -----
+created_time       2022-07-04T12:36:28.3963921Z
+custom_metadata    <nil>
+deletion_time      n/a
+destroyed          false
+version            1
+
+====== Data ======
+Key         Value
+---         -----
+password    myPassword
+```
+
+To retrieve in json format and pasrse with `jq` utlity.
+
+```bash
+# Using jq
+vault kv get -format=json secret/mySecret | jq -r '.data.data.password'
+
+# Using field option
+vault kv get -field=password secret/mySecret
+```
+
+
+## Configuration
+
+### Secrets Engines
+
+Built-in secrets enginers include:
+- Kye/Value (KV)
+- Cloud (Azure, AWS, GCP)
+- GitHub
+- Cubbyhole
+- SSH
+- Database
+- Token
+- Nomad
+- And more...
+
+When enabled, a secrets engine is available at path that acts as a virtual file system that is mounted. An example of such paths include:
+
+- secret (secret/mySecret/dbPassword)
+- ssh (ssh/roles/admin)
+
+```bash
+# List existing (default) secrets engines
+vault secrets list
+Path          Type         Accessor              Description
+----          ----         --------              -----------
+cubbyhole/    cubbyhole    cubbyhole_484a7c75    per-token private secret storage
+identity/     identity     identity_0d47327e     identity store
+secret/       kv           kv_35d3194f           key/value secret storage
+sys/          system       system_d1bf4ea6       system endpoints used for control, policy and debugging
+
+# Enable a kv secrets engine at custom path
+vault secrets enable -path=myApp kv
+
+# Write a secret to custom path
+vault kv put myApp/myOtherSecret key=value
+
+# Read a secret
+vault kv get myApp/myOtherSecret
+=== Data ===
+Key    Value
+---    -----
+key    value
+```
+
+```
+# Enable a database secrets engine at default path (database/)
+vault secrets enable database
+
+# Write to a default path
+vault write database/config/mysql_app1
+
+# Mounts a database secret engine to a custom path
+vault secrets enable -path=myAppDB database
+
+# Write to a custom path
+vault write myAppDB/config/mysql_app1
+```

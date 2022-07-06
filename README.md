@@ -22,6 +22,7 @@
   - [Configuration](#configuration)
     - [Secrets Engines](#secrets-engines-1)
     - [Authentication](#authentication)
+    - [Policies](#policies)
 
 
 ## Introduction
@@ -406,4 +407,50 @@ vault token revoke -accessor vqYYe6au3XZxJkOReQMFTlLP
 
 # Create a new child token with TTL
 vault token create --ttl=5m
+```
+
+### Policies
+
+Policies perform authorization against authentificated request. They are written in HCL and associated to tokens when generated.
+
+Built-in policies include:
+- `root` which provides sudo access to all paths, including `sys`. The only path a root token cannot access is a cubbyhole.
+- `default` which is attached to all tokens, allows read its metadata and can be modified
+
+Example policies
+
+```ruby
+path "secret/dev/*" {
+  capabilities = ["create", "update", "read", "list"]
+}
+```
+
+```bash
+# List existing policies
+vault policy list
+default
+root
+
+# View default policy
+vault policy read default
+
+# Upload policies
+vault policy write dev-policy ./examples/policies/dev-policy.hcl
+vault policy write app-policy ./examples/policies/app-policy.hcl
+
+# Enable userpass auth method
+vault auth enable userpass
+
+# Create app and dev user
+vault write auth/userpass/users/app password=app policies=app-policy
+vault write auth/userpass/users/dev password=dev policies=dev-policy
+
+# Login as dev user
+vault login -method=userpass username=dev password=dev
+
+# Verify which methods are allowed against a path
+vault token capabilities secret/data/dev/
+
+# Create a new secret
+vault kv put secret/dev/appsecret user=dbUser
 ```

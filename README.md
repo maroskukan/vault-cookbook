@@ -21,6 +21,7 @@
     - [Dev Server](#dev-server)
   - [Configuration](#configuration)
     - [Secrets Engines](#secrets-engines-1)
+    - [Authentication](#authentication)
 
 
 ## Introduction
@@ -356,4 +357,53 @@ vault secrets enable -path=myAppDB database
 
 # Write to a custom path
 vault write myAppDB/config/mysql_app1
+```
+
+### Authentication
+
+Vault provides the following authentification methods for users:
+- Userpass
+- Active Directory and LDAP
+- Cloud providers
+- GitHub
+
+Vault provides the following authentification methods for machines:
+- AppRole
+- Kubernetes
+
+Examples:
+
+```bash
+# List existing authentication methods
+vault auth list
+Path      Type     Accessor               Description
+----      ----     --------               -----------
+token/    token    auth_token_1419cf7c    token based credentials
+
+# Enable userpass authentication method
+vault auth enable userpass
+
+# Create user
+vault write auth/userpass/users/vaultuser password=vault
+
+# Verify that the user can login (a token will be returned back)
+vault login -method=userpass username=vaultuser password=vault
+
+# Verify that the user can login with token directly
+vault login hvs.CAESIJvoWvslZPyxaT7TDG8aGc8FKrjKfqfDNKwAZTwMuPkrGh4KHGh2cy5IWUxjRTRRaFBHeEkyMVYyMVh4bERFU1M
+
+# Create a new child token with same privileges as parent
+vault token create
+
+# List token accessors
+vault list auth/token/accessors
+
+# View more information about token
+vault token lookup -accessor vqYYe6au3XZxJkOReQMFTlLP
+
+# Revoke a token
+vault token revoke -accessor vqYYe6au3XZxJkOReQMFTlLP
+
+# Create a new child token with TTL
+vault token create --ttl=5m
 ```

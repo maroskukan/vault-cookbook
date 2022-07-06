@@ -19,6 +19,7 @@
     - [Container](#container)
   - [Initialization](#initialization)
     - [Dev Server](#dev-server)
+    - [Prod Server](#prod-server)
   - [Configuration](#configuration)
     - [Secrets Engines](#secrets-engines-1)
     - [Authentication](#authentication)
@@ -301,6 +302,48 @@ vault kv get -format=json secret/mySecret | jq -r '.data.data.password'
 vault kv get -field=password secret/mySecret
 ```
 
+### Prod Server
+
+In order to start a production vault server you need to follow these steps:
+1. Set configuration
+2. Start and initialize server
+3. Unseal
+4. Test
+
+```bash
+# Start server
+sudo vault server -config=./examples/configs/config.hcl &
+
+# Export address
+export VAULT_ADDR='http://127.0.0.1:8200'
+
+# Verify status
+vault status
+Key                Value
+---                -----
+Seal Type          shamir
+Initialized        false
+Sealed             true
+Total Shares       0
+Threshold          0
+Unseal Progress    0/0
+Unseal Nonce       n/a
+Version            1.10.4
+Storage Type       file
+HA Enabled         false
+
+# Initialize server, store unseal keys and root token sacurely for later use
+vault operator init
+
+# Unseal vault
+vault operator unseal
+
+# Login with root token
+vault login
+
+# Verify by listing enabled secrets engines
+vault secrets list
+```
 
 ## Configuration
 
